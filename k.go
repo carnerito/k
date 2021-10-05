@@ -68,7 +68,7 @@ func main() {
 	}
 
 	// Create context prompt and offer extracted contexts as possible answers
-	contextPrompt := selectPrompt("Select context", contexts, 10, false)
+	contextPrompt := selectPrompt("Select context", contexts, 10, true)
 	_, selectedContext, err := contextPrompt.Run()
 	if err != nil {
 		panic(err)
@@ -93,7 +93,7 @@ func main() {
 		namespaces := kubeGetNamespace(selectedContext)
 
 		// Create namespace prompt and offer fetched namespaces as possible answers
-		namespacePrompt := selectPrompt("Select namespace", namespaces, 10, false)
+		namespacePrompt := selectPrompt("Select namespace", namespaces, 10, true)
 		_, selectedNamespace, err := namespacePrompt.Run()
 		if err != nil {
 			panic(err)
