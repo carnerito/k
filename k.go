@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/manifoldco/promptui"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -50,7 +50,7 @@ func main() {
 	}(kubeConfFile)
 
 	// Read entire kube conf file and try unmarshal it to Config
-	kubeConfData, err := ioutil.ReadAll(kubeConfFile)
+	kubeConfData, err := io.ReadAll(kubeConfFile)
 	if err != nil {
 		panic(err)
 	}
@@ -61,34 +61,51 @@ func main() {
 		panic(err)
 	}
 
-	// Extract contexts from kube config
-	var contexts []string
-	for _, c := range kubeConf.Contexts {
-		contexts = append(contexts, c.Name)
+	changeNamespaceOnly := false
+	promptForNSConfig := true
+	setNamespace := true
+	selectedContext := kubeConf.CurrentContext
+
+	if len(os.Args) == 2 && os.Args[1] == "ns" {
+		changeNamespaceOnly = true
+		promptForNSConfig = false
 	}
 
-	// Create context prompt and offer extracted contexts as possible answers
-	contextPrompt := selectPrompt("Select context", contexts, 10, true)
-	_, selectedContext, err := contextPrompt.Run()
-	if err != nil {
-		panic(err)
+	if !changeNamespaceOnly {
+		// Extract contexts from kube config
+		var contexts []string
+		for _, c := range kubeConf.Contexts {
+			contexts = append(contexts, c.Name)
+		}
+
+		// Create context prompt and offer extracted contexts as possible answers
+		contextPrompt := selectPrompt("Select context", contexts, 10, true)
+		_, selectedContext, err = contextPrompt.Run()
+		if err != nil {
+			panic(err)
+		}
+
+		// Set selected context
+		err = kubeSetContext(selectedContext)
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	// Set selected context
-	err = kubeSetContext(selectedContext)
-	if err != nil {
-		panic(err)
-	}
+	if promptForNSConfig {
+		// Ask if user want to set namespace too
+		setNamespacePrompt := selectPrompt("Set Namespace for current context?", []string{"no", "yes"}, 2, false)
+		_, setNamespaceAnswer, err := setNamespacePrompt.Run()
+		if err != nil {
+			panic(err)
+		}
 
-	// Ask if user want to set namespace too
-	setNamespacePrompt := selectPrompt("Set Namespace for current context?", []string{"no", "yes"}, 2, false)
-	_, setNamespace, err := setNamespacePrompt.Run()
-	if err != nil {
-		panic(err)
+		setNamespace = setNamespaceAnswer == "yes"
+
 	}
 
 	// If user want to set namespace try to set namespace for current context, else do nothing
-	if setNamespace == "yes" {
+	if setNamespace {
 		// Get namespaces for current context
 		namespaces := kubeGetNamespace(selectedContext)
 
